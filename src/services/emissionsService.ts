@@ -10,35 +10,26 @@ import type { Emission, EmissionsRepository, NewEmission } from '../types/emissi
 const TABLE = 'emissions'
 const COLUMNS = 'id, source_name, category, co2_kg, measured_at'
 
-/**
- * Convierte una fila cruda en Emission, o null si no es válida.
- * PostgREST devuelve `numeric` como string en algunos casos, por eso co2_kg
- * acepta number o string numérico.
- */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/** numeric de Postgres puede llegar por PostgREST como number o como string. */
+function toNumber(value: unknown): number | null {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
+  return typeof n === 'number' && Number.isFinite(n) ? n : null
+}
+
+/** Convierte una fila cruda en Emission, o null si no es válida. Estrecha tipos sin casts. */
 export function parseEmissionRow(row: unknown): Emission | null {
-  if (typeof row !== 'object' || row === null) return null
-  const r = row as Record<string, unknown>
+  if (!isRecord(row)) return null
+  const { id, source_name, category, measured_at } = row
+  const co2Kg = toNumber(row.co2_kg)
 
-  const co2 = typeof r.co2_kg === 'string' ? Number(r.co2_kg) : r.co2_kg
-  if (
-    typeof r.id !== 'string' ||
-    typeof r.source_name !== 'string' ||
-    typeof r.category !== 'string' ||
-    !isEmissionCategory(r.category) ||
-    typeof co2 !== 'number' ||
-    !Number.isFinite(co2) ||
-    typeof r.measured_at !== 'string'
-  ) {
-    return null
-  }
+  if (typeof id !== 'string' || typeof source_name !== 'string' || typeof measured_at !== 'string') return null
+  if (!isEmissionCategory(category) || co2Kg === null || co2Kg < 0) return null
 
-  return {
-    id: r.id,
-    sourceName: r.source_name,
-    category: r.category,
-    co2Kg: co2,
-    measuredAt: r.measured_at,
-  }
+  return { id, sourceName: source_name, category, co2Kg, measuredAt: measured_at }
 }
 
 /** Traduce un error de Supabase a un mensaje para el usuario. */
@@ -62,12 +53,13 @@ export function createSupabaseRepository(client: SupabaseClient): EmissionsRepos
         .order('measured_at', { ascending: false })
       if (error) throw new Error(toUserMessage(error))
 
-      const rows: unknown[] = data ?? []
+      const rows: readonly unknown[] = data ?? []
       // Una fila inválida se descarta en vez de romper toda la lista.
       return rows.map(parseEmissionRow).filter((e): e is Emission => e !== null)
     },
 
     async insert(input: NewEmission) {
+      // Solo las columnas que el usuario aporta: id y measured_at los pone la BD.
       const { data, error } = await client
         .from(TABLE)
         .insert({ source_name: input.sourceName, category: input.category, co2_kg: input.co2Kg })

@@ -1,6 +1,10 @@
+import { useMemo } from 'react'
 import { useEmissions } from '../hooks/useEmissions.ts'
-import { EmissionCard, formatCo2 } from './EmissionCard.tsx'
+import { summarizeEmissions } from '../utils/format.ts'
+import { EmissionCard } from './EmissionCard.tsx'
 import { EmissionForm } from './EmissionForm.tsx'
+import { EmissionsEmpty, EmissionsLoadError, EmissionsLoading } from './EmissionsStatus.tsx'
+import { EmissionsSummary } from './EmissionsSummary.tsx'
 
 /*
  * Contenedor del dashboard. Toda la lógica de datos está en useEmissions():
@@ -10,62 +14,37 @@ export default function EmissionsTracker() {
   const { mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
     useEmissions()
 
-  const totalKg = emissions.reduce((sum, e) => sum + e.co2Kg, 0)
+  // Solo se recalcula cuando cambia la lista, no en cada tecla del formulario.
+  const summary = useMemo(() => summarizeEmissions(emissions), [emissions])
 
   return (
     <section aria-labelledby="emissions-title" className="flex flex-col gap-6">
       {mode === 'demo' && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          <strong>Modo demo:</strong> no hay credenciales de Supabase, los datos son simulados y no se guardan.
+        <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span aria-hidden="true">⚠</span>
+          <span>
+            <strong>Modo demo:</strong> no hay credenciales de Supabase. Los datos son simulados y se pierden al
+            recargar la página.
+          </span>
         </p>
       )}
 
-      <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 id="emissions-title" className="text-lg font-semibold text-slate-900">
-            Mediciones
-          </h2>
-          <p className="text-sm text-slate-500">
-            {emissions.length} {emissions.length === 1 ? 'fuente registrada' : 'fuentes registradas'}
-          </p>
-        </div>
-        <p className="text-sm text-slate-600">
-          Total: <span className="font-semibold text-slate-900">{formatCo2(totalKg)} CO₂e</span>
-        </p>
-      </header>
+      <h2 id="emissions-title" className="sr-only">
+        Mediciones de emisiones
+      </h2>
 
-      <EmissionForm
-        onAdd={addEmission}
-        isSubmitting={isSubmitting}
-        submitError={submitError}
-        onEdit={clearSubmitError}
-      />
+      <EmissionsSummary summary={summary} />
 
-      {(status === 'idle' || status === 'loading') && (
-        <p className="p-10 text-center text-sm text-slate-500">Cargando mediciones…</p>
-      )}
+      <EmissionForm onAdd={addEmission} isSubmitting={isSubmitting} submitError={submitError} onEdit={clearSubmitError} />
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="text-sm text-red-700">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
+      {status === 'loading' && <EmissionsLoading />}
 
-      {status === 'success' && emissions.length === 0 && (
-        <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">
-          Todavía no hay mediciones. Agrega la primera con el formulario.
-        </p>
-      )}
+      {status === 'error' && <EmissionsLoadError message={loadError ?? 'Error desconocido.'} onRetry={() => void reload()} />}
+
+      {status === 'success' && emissions.length === 0 && <EmissionsEmpty />}
 
       {status === 'success' && emissions.length > 0 && (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul aria-label="Mediciones registradas" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {emissions.map((emission) => (
             <li key={emission.id}>
               <EmissionCard emission={emission} />

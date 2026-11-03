@@ -2,15 +2,19 @@ import EmissionsTracker from './components/EmissionsTracker.tsx'
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-100">
-      <main className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-        <header>
-          <h1 className="text-2xl font-semibold text-slate-900">EcoTrack · Dashboard de emisiones</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Huella de carbono por fuente, en kilogramos de CO₂ equivalente.
-          </p>
-        </header>
-
+    <div className="min-h-screen bg-slate-50">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
+          <span aria-hidden="true" className="grid size-9 place-items-center rounded-lg bg-emerald-700 font-bold text-white">
+            E
+          </span>
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">EcoTrack</h1>
+            <p className="text-sm text-slate-600">Dashboard de emisiones en tiempo real</p>
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <EmissionsTracker />
       </main>
     </div>

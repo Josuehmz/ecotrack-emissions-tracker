@@ -1,0 +1,54 @@
+Verificación de v3 · 2026-11-03 15:16:17 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint
+src/components/EmissionsStatus.tsx:9:10: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/hooks/useEmissions.ts:56:10: warning react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+src/hooks/useEmissions.ts:59:7: error react-hooks(exhaustive-deps): The ref's value `.current` is accessed directly in the effect cleanup function. help: The ref value will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by react, copy it to a variable inside the effect and use that variable in the cleanup function.
+(código de salida: 1)
+
+### Pruebas (Vitest)
+$ pnpm exec vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/ecotrack-emissions-tracker
+
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  15:17:15
+   Duration  34.61s (environment 74%, import 17%, transform 6%, tests 2%, worker 1%)
+
+(código de salida: 0)
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.30 kB
+dist/assets/index-KTGp5Def.css   18.43 kB │ gzip:  4.59 kB
+dist/assets/index-CZu_9Dc7.js   232.18 kB │ gzip: 72.70 kB
+
+✓ built in 3.49s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:   0.30 kB
+dist/assets/index-KTGp5Def.css   18.43 kB │ gzip:   4.59 kB
+dist/assets/index-Daac74X5.js   448.34 kB │ gzip: 127.97 kB
+
+✓ built in 3.10s
+(código de salida: 0)
+
