@@ -1,8 +1,8 @@
-Verificación final de src/ · 2026-11-03 15:51:54 -0500 · node v24.15.0 · pnpm 11.24.0 · commit a5f473f
+Verificación final de src/ · 2026-11-03 16:04:04 -0500 · node v24.15.0 · pnpm 11.24.0 · commit e78f5ef
 
 ### $ pnpm install --frozen-lockfile
 Already up to date
-Done in 4.5s using pnpm v11.24.0
+Done in 2s using pnpm v11.24.0
 (código de salida: 0)
 
 Nota: tsconfig.json tiene "files": [] y solo referencias, así que `pnpm tsc --noEmit` no revisa ningún
@@ -27,8 +27,8 @@ $ vitest run
 
  Test Files  3 passed (3)
       Tests  37 passed (37)
-   Start at  15:53:39
-   Duration  29.11s (environment 82%, import 9%, transform 6%, tests 2%)
+   Start at  16:04:41
+   Duration  9.19s (environment 81%, import 12%, tests 5%, transform 1%, worker 1%)
 
 (código de salida: 0)
 
@@ -40,10 +40,10 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/index.html                   0.43 kB │ gzip:  0.30 kB
-dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:  4.59 kB
-dist/assets/index-4c67jqFs.js   232.96 kB │ gzip: 73.07 kB
+dist/assets/index-CQIYEn4L.css   18.53 kB │ gzip:  4.63 kB
+dist/assets/index-CBPE1vMD.js   233.20 kB │ gzip: 73.15 kB
 
-✓ built in 2.90s
+✓ built in 1.19s
 (código de salida: 0)
 
 ### Build con variables de prueba (valores falsos, no son credenciales): tamaño real del bundle
@@ -54,15 +54,15 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/index.html                   0.43 kB │ gzip:   0.30 kB
-dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:   4.59 kB
-dist/assets/index-D4rkPkVD.js   449.13 kB │ gzip: 128.26 kB
+dist/assets/index-CQIYEn4L.css   18.53 kB │ gzip:   4.63 kB
+dist/assets/index-DNptQ5a1.js   449.37 kB │ gzip: 128.33 kB
 
-✓ built in 2.71s
+✓ built in 1.33s
 (código de salida: 0)
 
 ### RLS de supabase/schema.sql (PostgreSQL 17 en Docker, rol anon)
 ### $ bash herramientas/probar-rls.sh
-== 2026-11-03 15:55:48 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== 2026-11-03 16:05:41 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
 == Schema: supabase/schema.sql
 NOTICE:  policy "emissions_select_todos" for relation "public.emissions" does not exist, skipping
 NOTICE:  policy "emissions_insert_valida" for relation "public.emissions" does not exist, skipping
