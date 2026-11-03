@@ -27,6 +27,15 @@ Proyecto Integrador «El Ciclo Spec-to-Code en Acción», módulo 3, «El Núcle
 | Calidad de UI y usabilidad | Tailwind responsive a 1, 2 y 3 columnas; esqueleto de carga, «Guardando…», error con «Reintentar», estado vacío y validación por campo ([capturas](docs/capturas/)) |
 | Auditoría IA (código, prompts, bundle, RLS) | [BITACORA.md §6](BITACORA.md#6-auditoría-ia) |
 
+## Vista rápida (capturas reales)
+
+| Escritorio | Móvil |
+|---|---|
+| ![Lista de emisiones en escritorio](docs/capturas/01-escritorio-lista.png) | ![Tarjetas en móvil](docs/capturas/10-movil-cards.png) |
+| ![Error de carga con reintento](docs/capturas/06-error-de-carga.png) | ![Validación del formulario en móvil](docs/capturas/11-movil-validacion.png) |
+
+Todas las capturas (carga, guardando, error al guardar, vacío...) están en [docs/capturas/](docs/capturas/).
+
 ## Árbol
 
 ```
