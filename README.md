@@ -2,6 +2,7 @@
 
 Proyecto Integrador «El Ciclo Spec-to-Code en Acción», módulo 3, «El Núcleo UI (React + IA)».
 **Entregable principal: [BITACORA.md](BITACORA.md) ([PDF](BITACORA.pdf)).**
+**Todo en un solo archivo: [ENTREGA-COMPLETA.pdf](ENTREGA-COMPLETA.pdf)** — README, bitácora de los 4 prompts con la evolución v1→v4, código fuente completo (`EmissionsTracker.tsx`, `useEmissions.ts`, cliente y esquema de Supabase), 11 capturas y la verificación final, para evaluar sin navegar el repositorio.
 
 > **Real y simulado.** El componente, el hook, las 37 pruebas, el build y las capturas se ejecutaron.
 > Sin `.env`, la app arranca en **modo demo**: datos de ejemplo en memoria, marcados en pantalla.
