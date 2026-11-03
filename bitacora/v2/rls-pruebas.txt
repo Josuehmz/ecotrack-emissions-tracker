@@ -1,5 +1,10 @@
-== 2026-11-03 15:06:15 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== 2026-11-03 15:25:08 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
 == Schema: bitacora/v2/supabase/schema.sql
+== Schema aplicado por segunda vez (idempotencia)
+NOTICE:  relation "emissions" already exists, skipping
+NOTICE:  relation "emissions_measured_at_idx" already exists, skipping
+ERROR:  policy "Lectura pública de mediciones" for table "emissions" already exists
+   (la segunda ejecución falló: el schema no es idempotente)
 OK    1. anon puede leer las mediciones
 OK    2. anon inserta una medición válida
 OK    3. categoría fuera de la lista rechazada (check)

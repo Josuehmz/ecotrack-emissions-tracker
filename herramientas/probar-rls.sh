@@ -20,5 +20,7 @@ echo "== $(date '+%Y-%m-%d %H:%M:%S %z') · $(psql_c -tAc 'select version()')"
 echo "== Schema: $SCHEMA"
 psql_c -v ON_ERROR_STOP=1 < supabase/pruebas/stub-supabase.sql
 psql_c -v ON_ERROR_STOP=1 < "$SCHEMA"
+echo "== Schema aplicado por segunda vez (idempotencia)"
+psql_c -v ON_ERROR_STOP=1 < "$SCHEMA" 2>&1 | sed -E 's/^psql:<stdin>:[0-9]+: //' || echo "   (la segunda ejecución falló: el schema no es idempotente)"
 psql_c -c "insert into public.emissions (source_name, category, co2_kg) values ('Semilla', 'Transporte', 100)"
-psql_c < supabase/pruebas/rls.sql 2>&1 | sed -E 's/^psql:<stdin>:[0-9]+: //; s/^NOTICE:  //'
+psql_c < supabase/pruebas/rls.sql 2>&1 | sed -E 's/^psql:<stdin>:[0-9]+: //; s/^NOTICE:  //' | grep -v '^ERROR:\|^CONTEXT:\|^PL/pgSQL'

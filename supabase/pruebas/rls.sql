@@ -1,5 +1,6 @@
 -- Pruebas de privilegios y RLS de public.emissions, ejecutadas con el rol anon
 -- (el mismo que usa el frontend con la anon key). Cada prueba imprime OK o FALLA.
+-- En 3 y 4 vale cualquiera de los dos rechazos: el check de la tabla o el with check de la política.
 \set ON_ERROR_STOP off
 set role anon;
 
@@ -16,12 +17,16 @@ exception when others then raise notice 'FALLA 2. anon no pudo insertar una medi
 do $$ begin
   insert into public.emissions (source_name, category, co2_kg) values ('Categoría inválida', 'Agua', 1);
   raise notice 'FALLA 3. se aceptó la categoría «Agua»';
-exception when check_violation then raise notice 'OK    3. categoría fuera de la lista rechazada (check)'; end $$;
+exception
+  when check_violation then raise notice 'OK    3. categoría fuera de la lista rechazada (check)';
+  when insufficient_privilege then raise notice 'OK    3. categoría fuera de la lista rechazada (política RLS)'; end $$;
 
 do $$ begin
   insert into public.emissions (source_name, category, co2_kg) values ('Negativo', 'Residuos', -1);
   raise notice 'FALLA 4. se aceptó co2_kg negativo';
-exception when check_violation then raise notice 'OK    4. co2_kg negativo rechazado (check)'; end $$;
+exception
+  when check_violation then raise notice 'OK    4. co2_kg negativo rechazado (check)';
+  when insufficient_privilege then raise notice 'OK    4. co2_kg negativo rechazado (política RLS)'; end $$;
 
 do $$ begin
   insert into public.emissions (source_name, category, co2_kg, measured_at) values ('Fecha falsa', 'Energía', 1, '1999-01-01');
