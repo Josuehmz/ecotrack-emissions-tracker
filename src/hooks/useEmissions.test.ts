@@ -17,6 +17,7 @@ const NEW: NewEmission = { sourceName: 'Camión 12', category: 'Transporte', co2
 function fakeRepository(overrides: Partial<EmissionsRepository> = {}): EmissionsRepository {
   return {
     mode: 'demo',
+    simulation: null,
     list: async () => [SAMPLE],
     insert: async (input) => ({ ...input, id: 'e-2', measuredAt: '2026-11-03T11:00:00Z' }),
     ...overrides,
@@ -64,8 +65,9 @@ describe('useEmissions', () => {
     await waitFor(() => expect(result.current.status).toBe('error'))
     expect(result.current.loadError).toBe('No se pudo conectar con Supabase.')
 
-    await act(() => result.current.reload())
-    expect(result.current.status).toBe('success')
+    act(() => result.current.reload())
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => expect(result.current.status).toBe('success'))
     expect(result.current.loadError).toBeNull()
     expect(result.current.emissions).toEqual([SAMPLE])
   })

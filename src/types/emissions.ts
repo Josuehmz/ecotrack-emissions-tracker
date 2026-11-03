@@ -61,6 +61,10 @@ export type LoadStatus = 'loading' | 'success' | 'error'
 /** De dónde salen los datos: Supabase real o el repositorio en memoria (modo demo). */
 export type DataMode = 'supabase' | 'demo'
 
+/** Casos que el modo demo puede reproducir con ?simular=… (solo para revisar la UI). */
+export const DEMO_SIMULATIONS = ['lento', 'error-carga', 'error-guardado', 'vacio'] as const
+export type DemoSimulation = (typeof DEMO_SIMULATIONS)[number]
+
 /**
  * Lo que el hook necesita de la capa de datos. Lo implementan el servicio de
  * Supabase y el repositorio demo, y en las pruebas un repositorio falso.
@@ -68,6 +72,8 @@ export type DataMode = 'supabase' | 'demo'
  */
 export interface EmissionsRepository {
   readonly mode: DataMode
+  /** Simulación activa en modo demo; siempre null con Supabase. */
+  readonly simulation: DemoSimulation | null
   list(): Promise<Emission[]>
   insert(input: NewEmission): Promise<Emission>
 }
@@ -83,6 +89,8 @@ export interface EmissionsSummary {
 export interface UseEmissionsResult {
   /** 'demo' cuando faltan las variables de Supabase; la UI lo avisa. */
   readonly mode: DataMode
+  /** Simulación activa en modo demo (?simular=…); null si no hay. */
+  readonly simulation: DemoSimulation | null
   /** Mediciones ya cargadas, de la más reciente a la más antigua. */
   readonly emissions: readonly Emission[]
   readonly status: LoadStatus
@@ -94,8 +102,8 @@ export interface UseEmissionsResult {
   readonly submitError: string | null
   /** Inserta una medición. true si se guardó; false si falló o ya había otra en curso. */
   readonly addEmission: (input: NewEmission) => Promise<boolean>
-  /** Vuelve a pedir el listado (botón "Reintentar"). */
-  readonly reload: () => Promise<void>
+  /** Vuelve a pedir el listado (botón "Reintentar"). El resultado llega por status. */
+  readonly reload: () => void
   /** Limpia submitError cuando el usuario vuelve a editar el formulario. */
   readonly clearSubmitError: () => void
 }

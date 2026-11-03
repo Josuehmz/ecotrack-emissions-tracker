@@ -1,17 +1,25 @@
 import { useMemo } from 'react'
 import { useEmissions } from '../hooks/useEmissions.ts'
+import type { DemoSimulation } from '../types/emissions.ts'
 import { summarizeEmissions } from '../utils/format.ts'
 import { EmissionCard } from './EmissionCard.tsx'
 import { EmissionForm } from './EmissionForm.tsx'
 import { EmissionsEmpty, EmissionsLoadError, EmissionsLoading } from './EmissionsStatus.tsx'
 import { EmissionsSummary } from './EmissionsSummary.tsx'
 
+const SIMULATION_LABELS: Record<DemoSimulation, string> = {
+  lento: 'carga lenta (4 s)',
+  'error-carga': 'la primera carga falla',
+  'error-guardado': 'todo guardado falla',
+  vacio: 'sin mediciones',
+}
+
 /*
  * Contenedor del dashboard. Toda la lógica de datos está en useEmissions():
- * este archivo no importa Supabase, ni lib/, ni services/.
+ * este archivo no importa Supabase, ni lib/, ni services/ (lo vigila .oxlintrc.json).
  */
 export default function EmissionsTracker() {
-  const { mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
+  const { mode, simulation, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
     useEmissions()
 
   // Solo se recalcula cuando cambia la lista, no en cada tecla del formulario.
@@ -25,6 +33,12 @@ export default function EmissionsTracker() {
           <span>
             <strong>Modo demo:</strong> no hay credenciales de Supabase. Los datos son simulados y se pierden al
             recargar la página.
+            {simulation && (
+              <>
+                {' '}
+                <strong>Simulación activa:</strong> {SIMULATION_LABELS[simulation]}.
+              </>
+            )}
           </span>
         </p>
       )}
@@ -39,7 +53,7 @@ export default function EmissionsTracker() {
 
       {status === 'loading' && <EmissionsLoading />}
 
-      {status === 'error' && <EmissionsLoadError message={loadError ?? 'Error desconocido.'} onRetry={() => void reload()} />}
+      {status === 'error' && <EmissionsLoadError message={loadError ?? 'Error desconocido.'} onRetry={reload} />}
 
       {status === 'success' && emissions.length === 0 && <EmissionsEmpty />}
 

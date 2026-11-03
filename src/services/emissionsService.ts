@@ -45,6 +45,7 @@ export function toUserMessage(error: Pick<PostgrestError, 'message' | 'code'>): 
 export function createSupabaseRepository(client: SupabaseClient): EmissionsRepository {
   return {
     mode: 'supabase',
+    simulation: null,
 
     async list() {
       const { data, error } = await client

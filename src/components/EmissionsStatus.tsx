@@ -3,10 +3,10 @@ interface LoadErrorProps {
   readonly onRetry: () => void
 }
 
-/** Esqueleto de carga: se anuncia una sola vez con role="status". */
+/** Esqueleto de carga. <output> tiene role="status" implícito y se anuncia de forma educada. */
 export function EmissionsLoading() {
   return (
-    <div role="status" aria-live="polite">
+    <output aria-live="polite" className="block">
       <span className="sr-only">Cargando mediciones…</span>
       <ul aria-hidden="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
@@ -17,7 +17,7 @@ export function EmissionsLoading() {
           </li>
         ))}
       </ul>
-    </div>
+    </output>
   )
 }
 

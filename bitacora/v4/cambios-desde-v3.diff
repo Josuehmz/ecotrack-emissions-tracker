@@ -1,0 +1,413 @@
+diff --git a/bitacora/v3/src/components/EmissionsStatus.tsx b/bitacora/v4/src/components/EmissionsStatus.tsx
+index 07ea5cd..a3a0369 100644
+--- a/bitacora/v3/src/components/EmissionsStatus.tsx
++++ b/bitacora/v4/src/components/EmissionsStatus.tsx
+@@ -3,10 +3,10 @@ interface LoadErrorProps {
+   readonly onRetry: () => void
+ }
+ 
+-/** Esqueleto de carga: se anuncia una sola vez con role="status". */
++/** Esqueleto de carga. <output> tiene role="status" implícito y se anuncia de forma educada. */
+ export function EmissionsLoading() {
+   return (
+-    <div role="status" aria-live="polite">
++    <output aria-live="polite" className="block">
+       <span className="sr-only">Cargando mediciones…</span>
+       <ul aria-hidden="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+         {[0, 1, 2].map((i) => (
+@@ -17,7 +17,7 @@ export function EmissionsLoading() {
+           </li>
+         ))}
+       </ul>
+-    </div>
++    </output>
+   )
+ }
+ 
+diff --git a/bitacora/v3/src/components/EmissionsTracker.tsx b/bitacora/v4/src/components/EmissionsTracker.tsx
+index b63e7b0..4cc2bf0 100644
+--- a/bitacora/v3/src/components/EmissionsTracker.tsx
++++ b/bitacora/v4/src/components/EmissionsTracker.tsx
+@@ -1,17 +1,25 @@
+ import { useMemo } from 'react'
+ import { useEmissions } from '../hooks/useEmissions.ts'
++import type { DemoSimulation } from '../types/emissions.ts'
+ import { summarizeEmissions } from '../utils/format.ts'
+ import { EmissionCard } from './EmissionCard.tsx'
+ import { EmissionForm } from './EmissionForm.tsx'
+ import { EmissionsEmpty, EmissionsLoadError, EmissionsLoading } from './EmissionsStatus.tsx'
+ import { EmissionsSummary } from './EmissionsSummary.tsx'
+ 
++const SIMULATION_LABELS: Record<DemoSimulation, string> = {
++  lento: 'carga lenta (4 s)',
++  'error-carga': 'la primera carga falla',
++  'error-guardado': 'todo guardado falla',
++  vacio: 'sin mediciones',
++}
++
+ /*
+  * Contenedor del dashboard. Toda la lógica de datos está en useEmissions():
+- * este archivo no importa Supabase, ni lib/, ni services/.
++ * este archivo no importa Supabase, ni lib/, ni services/ (lo vigila .oxlintrc.json).
+  */
+ export default function EmissionsTracker() {
+-  const { mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
++  const { mode, simulation, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
+     useEmissions()
+ 
+   // Solo se recalcula cuando cambia la lista, no en cada tecla del formulario.
+@@ -25,6 +33,12 @@ export default function EmissionsTracker() {
+           <span>
+             <strong>Modo demo:</strong> no hay credenciales de Supabase. Los datos son simulados y se pierden al
+             recargar la página.
++            {simulation && (
++              <>
++                {' '}
++                <strong>Simulación activa:</strong> {SIMULATION_LABELS[simulation]}.
++              </>
++            )}
+           </span>
+         </p>
+       )}
+@@ -39,7 +53,7 @@ export default function EmissionsTracker() {
+ 
+       {status === 'loading' && <EmissionsLoading />}
+ 
+-      {status === 'error' && <EmissionsLoadError message={loadError ?? 'Error desconocido.'} onRetry={() => void reload()} />}
++      {status === 'error' && <EmissionsLoadError message={loadError ?? 'Error desconocido.'} onRetry={reload} />}
+ 
+       {status === 'success' && emissions.length === 0 && <EmissionsEmpty />}
+ 
+diff --git a/bitacora/v3/src/hooks/useEmissions.test.ts b/bitacora/v4/src/hooks/useEmissions.test.ts
+index 5d3ea1d..6b4fa76 100644
+--- a/bitacora/v3/src/hooks/useEmissions.test.ts
++++ b/bitacora/v4/src/hooks/useEmissions.test.ts
+@@ -17,6 +17,7 @@ const NEW: NewEmission = { sourceName: 'Camión 12', category: 'Transporte', co2
+ function fakeRepository(overrides: Partial<EmissionsRepository> = {}): EmissionsRepository {
+   return {
+     mode: 'demo',
++    simulation: null,
+     list: async () => [SAMPLE],
+     insert: async (input) => ({ ...input, id: 'e-2', measuredAt: '2026-11-03T11:00:00Z' }),
+     ...overrides,
+@@ -64,8 +65,9 @@ describe('useEmissions', () => {
+     await waitFor(() => expect(result.current.status).toBe('error'))
+     expect(result.current.loadError).toBe('No se pudo conectar con Supabase.')
+ 
+-    await act(() => result.current.reload())
+-    expect(result.current.status).toBe('success')
++    act(() => result.current.reload())
++    expect(result.current.status).toBe('loading')
++    await waitFor(() => expect(result.current.status).toBe('success'))
+     expect(result.current.loadError).toBeNull()
+     expect(result.current.emissions).toEqual([SAMPLE])
+   })
+diff --git a/bitacora/v3/src/hooks/useEmissions.ts b/bitacora/v4/src/hooks/useEmissions.ts
+index cec11ca..cf4c4e2 100644
+--- a/bitacora/v3/src/hooks/useEmissions.ts
++++ b/bitacora/v4/src/hooks/useEmissions.ts
+@@ -18,53 +18,57 @@ function messageOf(error: unknown): string {
+  * - El repositorio entra por parámetro (Supabase o demo por defecto) para probar
+  *   sin red. Se fija el del PRIMER render: si quien llama crea uno nuevo en cada
+  *   render, el hook no recarga sin fin (bug encontrado en v2).
++ * - La carga es una suscripción: el efecto lanza la promesa y solo aplica el
++ *   resultado si sigue activo (StrictMode monta dos veces; "Reintentar" puede
++ *   llegar antes que una respuesta lenta).
+  * - La UI solo habla con este hook; nunca con services/ ni con Supabase.
+  */
+ export function useEmissions(repository: EmissionsRepository = defaultRepository): UseEmissionsResult {
+   const [repo] = useState(() => repository)
+ 
+   const [emissions, setEmissions] = useState<readonly Emission[]>([])
+-  // Empieza en 'loading': así el efecto no necesita un setState síncrono.
+   const [status, setStatus] = useState<LoadStatus>('loading')
+   const [loadError, setLoadError] = useState<string | null>(null)
+   const [isSubmitting, setIsSubmitting] = useState(false)
+   const [submitError, setSubmitError] = useState<string | null>(null)
++  // Cambiarlo vuelve a disparar el efecto de carga ("Reintentar").
++  const [loadRequest, setLoadRequest] = useState(0)
+ 
+-  // Solo la última carga pedida escribe el estado; desmontar invalida todas.
+-  const lastRequestRef = useRef(0)
+   const mountedRef = useRef(false)
+   // Bloqueo síncrono de doble envío: el estado isSubmitting llega un render tarde.
+   const submittingRef = useRef(false)
+ 
+-  /** Pide el listado y aplica el resultado si sigue siendo la última petición. No hace setState síncrono. */
+-  const fetchList = useCallback(async () => {
+-    const requestId = ++lastRequestRef.current
+-    try {
+-      const rows = await repo.list()
+-      if (requestId !== lastRequestRef.current) return
+-      setEmissions(rows)
+-      setStatus('success')
+-    } catch (error) {
+-      if (requestId !== lastRequestRef.current) return
+-      setLoadError(messageOf(error))
+-      setStatus('error')
+-    }
+-  }, [repo])
+-
+   useEffect(() => {
+     mountedRef.current = true
+-    void fetchList()
+     return () => {
+       mountedRef.current = false
+-      lastRequestRef.current++ // descarta la respuesta en vuelo (StrictMode monta dos veces)
+     }
+-  }, [fetchList])
++  }, [])
++
++  useEffect(() => {
++    let active = true
++    repo.list().then(
++      (rows) => {
++        if (!active) return
++        setEmissions(rows)
++        setStatus('success')
++      },
++      (error: unknown) => {
++        if (!active) return
++        setLoadError(messageOf(error))
++        setStatus('error')
++      },
++    )
++    return () => {
++      active = false
++    }
++  }, [repo, loadRequest])
+ 
+-  const reload = useCallback(async () => {
++  const reload = useCallback(() => {
+     setStatus('loading')
+     setLoadError(null)
+-    await fetchList()
+-  }, [fetchList])
++    setLoadRequest((n) => n + 1)
++  }, [])
+ 
+   const addEmission = useCallback(
+     async (input: NewEmission) => {
+@@ -94,6 +98,7 @@ export function useEmissions(repository: EmissionsRepository = defaultRepository
+   return useMemo(
+     () => ({
+       mode: repo.mode,
++      simulation: repo.simulation,
+       emissions,
+       status,
+       loadError,
+@@ -103,6 +108,6 @@ export function useEmissions(repository: EmissionsRepository = defaultRepository
+       reload,
+       clearSubmitError,
+     }),
+-    [repo.mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError],
++    [repo, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError],
+   )
+ }
+diff --git a/bitacora/v4/src/services/demoRepository.test.ts b/bitacora/v4/src/services/demoRepository.test.ts
+new file mode 100644
+index 0000000..077dd24
+--- /dev/null
++++ b/bitacora/v4/src/services/demoRepository.test.ts
+@@ -0,0 +1,44 @@
++import { describe, expect, it } from 'vitest'
++import { createDemoRepository, simulationFromSearch } from './demoRepository.ts'
++
++const NEW = { sourceName: 'Camión 12', category: 'Transporte', co2Kg: 45.5 } as const
++
++describe('simulationFromSearch', () => {
++  it.each([
++    ['?simular=lento', 'lento'],
++    ['?simular=error-carga', 'error-carga'],
++    ['?simular=error-guardado', 'error-guardado'],
++    ['?simular=vacio', 'vacio'],
++    ['?simular=otra-cosa', null],
++    ['', null],
++  ])('%j → %j', (search, expected) => {
++    expect(simulationFromSearch(search)).toBe(expected)
++  })
++})
++
++describe('createDemoRepository', () => {
++  it('sin simulación trae los 5 datos de ejemplo y guarda en memoria', async () => {
++    const repo = createDemoRepository({ delayMs: 0 })
++    expect(repo.mode).toBe('demo')
++    expect(await repo.list()).toHaveLength(5)
++    const created = await repo.insert(NEW)
++    expect(created.id).toMatch(/^demo-/)
++    expect((await repo.list())[0]).toEqual(created)
++  })
++
++  it('vacio arranca sin mediciones', async () => {
++    expect(await createDemoRepository({ delayMs: 0, simulation: 'vacio' }).list()).toEqual([])
++  })
++
++  it('error-carga falla la primera vez y funciona al reintentar', async () => {
++    const repo = createDemoRepository({ delayMs: 0, simulation: 'error-carga' })
++    await expect(repo.list()).rejects.toThrow('(simulado)')
++    expect(await repo.list()).toHaveLength(5)
++  })
++
++  it('error-guardado rechaza toda inserción y no cambia la lista', async () => {
++    const repo = createDemoRepository({ delayMs: 0, simulation: 'error-guardado' })
++    await expect(repo.insert(NEW)).rejects.toThrow('política RLS')
++    expect(await repo.list()).toHaveLength(5)
++  })
++})
+diff --git a/bitacora/v3/src/services/demoRepository.ts b/bitacora/v4/src/services/demoRepository.ts
+index 32ce030..63e64d8 100644
+--- a/bitacora/v3/src/services/demoRepository.ts
++++ b/bitacora/v4/src/services/demoRepository.ts
+@@ -1,11 +1,18 @@
+-import type { Emission, EmissionsRepository, NewEmission } from '../types/emissions.ts'
++import { DEMO_SIMULATIONS } from '../types/emissions.ts'
++import type { DemoSimulation, Emission, EmissionsRepository, NewEmission } from '../types/emissions.ts'
+ 
+ /*
+  * MODO DEMO: repositorio en memoria con DATOS SIMULADOS.
+  * Se usa cuando faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY.
+  * Tiene la misma interfaz que el servicio de Supabase y un retardo artificial
+- * para que se vean el loader y el botón "Guardando…". Nada se persiste: al
+- * recargar la página vuelven los datos iniciales.
++ * para que se vean el esqueleto de carga y el botón "Guardando…". Nada se
++ * persiste: al recargar la página vuelven los datos iniciales.
++ *
++ * Con ?simular=… reproduce un caso para revisar la UI (nunca en modo Supabase):
++ *   lento          la carga y el guardado tardan 4 s
++ *   error-carga    la primera carga falla; "Reintentar" funciona
++ *   error-guardado todo guardado falla con el mismo mensaje que daría RLS
++ *   vacio          arranca sin mediciones
+  */
+ 
+ const DEMO_SEED: readonly Emission[] = [
+@@ -16,26 +23,46 @@ const DEMO_SEED: readonly Emission[] = [
+   { id: 'demo-5', sourceName: 'Centro de datos', category: 'Energía', co2Kg: 958.8, measuredAt: '2026-10-31T23:59:00Z' },
+ ]
+ 
++export const DEFAULT_DEMO_DELAY_MS = 700
++const SLOW_DELAY_MS = 4000
++
++/** Lee ?simular=… de la URL. Un valor desconocido se ignora (null). */
++export function simulationFromSearch(search: string): DemoSimulation | null {
++  const value = new URLSearchParams(search).get('simular')
++  return DEMO_SIMULATIONS.find((s) => s === value) ?? null
++}
++
++interface DemoOptions {
++  readonly delayMs?: number
++  readonly simulation?: DemoSimulation | null
++}
++
+ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+ 
+-export function createDemoRepository(delayMs = 700): EmissionsRepository {
+-  let rows: Emission[] = [...DEMO_SEED]
++export function createDemoRepository({ delayMs = DEFAULT_DEMO_DELAY_MS, simulation = null }: DemoOptions = {}): EmissionsRepository {
++  let rows: Emission[] = simulation === 'vacio' ? [] : [...DEMO_SEED]
++  let loadAttempts = 0
++  const delay = simulation === 'lento' ? Math.max(delayMs, SLOW_DELAY_MS) : delayMs
+ 
+   return {
+     mode: 'demo',
++    simulation,
+ 
+     async list() {
+-      await wait(delayMs)
++      await wait(delay)
++      loadAttempts++
++      if (simulation === 'error-carga' && loadAttempts === 1) {
++        throw new Error('No se pudo conectar con Supabase. Revisa tu conexión e inténtalo de nuevo. (simulado)')
++      }
+       return [...rows]
+     },
+ 
+     async insert(input: NewEmission) {
+-      await wait(delayMs)
+-      const created: Emission = {
+-        ...input,
+-        id: `demo-${crypto.randomUUID()}`,
+-        measuredAt: new Date().toISOString(),
++      await wait(delay)
++      if (simulation === 'error-guardado') {
++        throw new Error('No tienes permiso para esta operación (política RLS). (simulado)')
+       }
++      const created: Emission = { ...input, id: `demo-${crypto.randomUUID()}`, measuredAt: new Date().toISOString() }
+       rows = [created, ...rows]
+       return created
+     },
+diff --git a/bitacora/v3/src/services/emissionsService.ts b/bitacora/v4/src/services/emissionsService.ts
+index 9d58ffe..14d12d9 100644
+--- a/bitacora/v3/src/services/emissionsService.ts
++++ b/bitacora/v4/src/services/emissionsService.ts
+@@ -45,6 +45,7 @@ export function toUserMessage(error: Pick<PostgrestError, 'message' | 'code'>):
+ export function createSupabaseRepository(client: SupabaseClient): EmissionsRepository {
+   return {
+     mode: 'supabase',
++    simulation: null,
+ 
+     async list() {
+       const { data, error } = await client
+diff --git a/bitacora/v3/src/services/index.ts b/bitacora/v4/src/services/index.ts
+index b8457f0..5d8d558 100644
+--- a/bitacora/v3/src/services/index.ts
++++ b/bitacora/v4/src/services/index.ts
+@@ -1,9 +1,12 @@
+ import { supabase } from '../lib/supabaseClient.ts'
+ import type { EmissionsRepository } from '../types/emissions.ts'
+-import { createDemoRepository } from './demoRepository.ts'
++import { createDemoRepository, simulationFromSearch } from './demoRepository.ts'
+ import { createSupabaseRepository } from './emissionsService.ts'
+ 
+-/** Repositorio por defecto: Supabase si hay credenciales, si no el modo demo. */
++/**
++ * Repositorio por defecto: Supabase si hay credenciales; si no, el modo demo.
++ * ?simular=… solo se lee en modo demo: con Supabase no tiene ningún efecto.
++ */
+ export const defaultRepository: EmissionsRepository = supabase
+   ? createSupabaseRepository(supabase)
+-  : createDemoRepository()
++  : createDemoRepository({ simulation: simulationFromSearch(window.location.search) })
+diff --git a/bitacora/v3/src/types/emissions.ts b/bitacora/v4/src/types/emissions.ts
+index 7adabc3..1f1c454 100644
+--- a/bitacora/v3/src/types/emissions.ts
++++ b/bitacora/v4/src/types/emissions.ts
+@@ -61,6 +61,10 @@ export type LoadStatus = 'loading' | 'success' | 'error'
+ /** De dónde salen los datos: Supabase real o el repositorio en memoria (modo demo). */
+ export type DataMode = 'supabase' | 'demo'
+ 
++/** Casos que el modo demo puede reproducir con ?simular=… (solo para revisar la UI). */
++export const DEMO_SIMULATIONS = ['lento', 'error-carga', 'error-guardado', 'vacio'] as const
++export type DemoSimulation = (typeof DEMO_SIMULATIONS)[number]
++
+ /**
+  * Lo que el hook necesita de la capa de datos. Lo implementan el servicio de
+  * Supabase y el repositorio demo, y en las pruebas un repositorio falso.
+@@ -68,6 +72,8 @@ export type DataMode = 'supabase' | 'demo'
+  */
+ export interface EmissionsRepository {
+   readonly mode: DataMode
++  /** Simulación activa en modo demo; siempre null con Supabase. */
++  readonly simulation: DemoSimulation | null
+   list(): Promise<Emission[]>
+   insert(input: NewEmission): Promise<Emission>
+ }
+@@ -83,6 +89,8 @@ export interface EmissionsSummary {
+ export interface UseEmissionsResult {
+   /** 'demo' cuando faltan las variables de Supabase; la UI lo avisa. */
+   readonly mode: DataMode
++  /** Simulación activa en modo demo (?simular=…); null si no hay. */
++  readonly simulation: DemoSimulation | null
+   /** Mediciones ya cargadas, de la más reciente a la más antigua. */
+   readonly emissions: readonly Emission[]
+   readonly status: LoadStatus
+@@ -94,8 +102,8 @@ export interface UseEmissionsResult {
+   readonly submitError: string | null
+   /** Inserta una medición. true si se guardó; false si falló o ya había otra en curso. */
+   readonly addEmission: (input: NewEmission) => Promise<boolean>
+-  /** Vuelve a pedir el listado (botón "Reintentar"). */
+-  readonly reload: () => Promise<void>
++  /** Vuelve a pedir el listado (botón "Reintentar"). El resultado llega por status. */
++  readonly reload: () => void
+   /** Limpia submitError cuando el usuario vuelve a editar el formulario. */
+   readonly clearSubmitError: () => void
+ }

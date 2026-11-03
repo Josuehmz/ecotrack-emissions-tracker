@@ -1,0 +1,7 @@
+Prueba de la regla de arquitectura (archivos temporales con imports prohibidos, borrados después) · 2026-11-03 15:33:11 -0500
+$ pnpm exec oxlint src/components/Prueba.ts src/hooks/prueba.ts
+src/components/Prueba.ts:1:1: error eslint(no-restricted-imports): '../lib/supabaseClient.ts' import is restricted from being used by a pattern. help: Arquitectura: la UI no usa el cliente de Supabase; habla con un hook de src/hooks/.
+src/components/Prueba.ts:2:1: error eslint(no-restricted-imports): '../services/index.ts' import is restricted from being used by a pattern. help: Arquitectura: la UI no llama servicios; usa useEmissions().
+src/components/Prueba.ts:3:1: error eslint(no-restricted-imports): '@supabase/supabase-js' import is restricted from being used. help: Arquitectura: solo src/lib/ y src/services/ usan Supabase.
+src/hooks/prueba.ts:1:1: error eslint(no-restricted-imports): '../lib/supabaseClient.ts' import is restricted from being used by a pattern. help: Arquitectura: los hooks usan services/, no el cliente de lib/.
+(código de salida: 1)

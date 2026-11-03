@@ -18,53 +18,57 @@ function messageOf(error: unknown): string {
  * - El repositorio entra por parámetro (Supabase o demo por defecto) para probar
  *   sin red. Se fija el del PRIMER render: si quien llama crea uno nuevo en cada
  *   render, el hook no recarga sin fin (bug encontrado en v2).
+ * - La carga es una suscripción: el efecto lanza la promesa y solo aplica el
+ *   resultado si sigue activo (StrictMode monta dos veces; "Reintentar" puede
+ *   llegar antes que una respuesta lenta).
  * - La UI solo habla con este hook; nunca con services/ ni con Supabase.
  */
 export function useEmissions(repository: EmissionsRepository = defaultRepository): UseEmissionsResult {
   const [repo] = useState(() => repository)
 
   const [emissions, setEmissions] = useState<readonly Emission[]>([])
-  // Empieza en 'loading': así el efecto no necesita un setState síncrono.
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Cambiarlo vuelve a disparar el efecto de carga ("Reintentar").
+  const [loadRequest, setLoadRequest] = useState(0)
 
-  // Solo la última carga pedida escribe el estado; desmontar invalida todas.
-  const lastRequestRef = useRef(0)
   const mountedRef = useRef(false)
   // Bloqueo síncrono de doble envío: el estado isSubmitting llega un render tarde.
   const submittingRef = useRef(false)
 
-  /** Pide el listado y aplica el resultado si sigue siendo la última petición. No hace setState síncrono. */
-  const fetchList = useCallback(async () => {
-    const requestId = ++lastRequestRef.current
-    try {
-      const rows = await repo.list()
-      if (requestId !== lastRequestRef.current) return
-      setEmissions(rows)
-      setStatus('success')
-    } catch (error) {
-      if (requestId !== lastRequestRef.current) return
-      setLoadError(messageOf(error))
-      setStatus('error')
-    }
-  }, [repo])
-
   useEffect(() => {
     mountedRef.current = true
-    void fetchList()
     return () => {
       mountedRef.current = false
-      lastRequestRef.current++ // descarta la respuesta en vuelo (StrictMode monta dos veces)
     }
-  }, [fetchList])
+  }, [])
 
-  const reload = useCallback(async () => {
+  useEffect(() => {
+    let active = true
+    repo.list().then(
+      (rows) => {
+        if (!active) return
+        setEmissions(rows)
+        setStatus('success')
+      },
+      (error: unknown) => {
+        if (!active) return
+        setLoadError(messageOf(error))
+        setStatus('error')
+      },
+    )
+    return () => {
+      active = false
+    }
+  }, [repo, loadRequest])
+
+  const reload = useCallback(() => {
     setStatus('loading')
     setLoadError(null)
-    await fetchList()
-  }, [fetchList])
+    setLoadRequest((n) => n + 1)
+  }, [])
 
   const addEmission = useCallback(
     async (input: NewEmission) => {
@@ -94,6 +98,7 @@ export function useEmissions(repository: EmissionsRepository = defaultRepository
   return useMemo(
     () => ({
       mode: repo.mode,
+      simulation: repo.simulation,
       emissions,
       status,
       loadError,
@@ -103,6 +108,6 @@ export function useEmissions(repository: EmissionsRepository = defaultRepository
       reload,
       clearSubmitError,
     }),
-    [repo.mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError],
+    [repo, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError],
   )
 }

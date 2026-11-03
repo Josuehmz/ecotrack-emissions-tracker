@@ -1,0 +1,51 @@
+Verificación de v4 · 2026-11-03 15:30:13 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint
+(código de salida: 0)
+
+### Pruebas (Vitest)
+$ pnpm exec vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/ecotrack-emissions-tracker
+
+
+ Test Files  3 passed (3)
+      Tests  37 passed (37)
+   Start at  15:31:59
+   Duration  26.99s (environment 84%, import 10%, transform 3%, tests 2%, worker 1%)
+
+(código de salida: 0)
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.30 kB
+dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:  4.59 kB
+dist/assets/index-4c67jqFs.js   232.96 kB │ gzip: 73.07 kB
+
+✓ built in 1.86s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:   0.30 kB
+dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:   4.59 kB
+dist/assets/index-D4rkPkVD.js   449.13 kB │ gzip: 128.26 kB
+
+✓ built in 2.66s
+(código de salida: 0)
+

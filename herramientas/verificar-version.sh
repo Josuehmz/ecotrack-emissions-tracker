@@ -13,6 +13,9 @@ rm -rf src && cp -r "$ORIGEN" src
 # tsconfig.app.json: el de la versión si lo trae; si no, el del commit inicial.
 if [ -f "bitacora/$VERSION/tsconfig.app.json" ]; then cp "bitacora/$VERSION/tsconfig.app.json" tsconfig.app.json
 else git show "$(git rev-list --max-parents=0 HEAD):tsconfig.app.json" > tsconfig.app.json; fi
+# .oxlintrc.json: el de la versión si lo trae; si no, el base (solo ignora bitacora/ y dist/).
+if [ -f "bitacora/$VERSION/.oxlintrc.json" ]; then cp "bitacora/$VERSION/.oxlintrc.json" .oxlintrc.json
+else git show "fd8f25d:.oxlintrc.json" > .oxlintrc.json; fi
 # Los archivos de arranque que la versión no trae se toman del proyecto base (commit inicial).
 for base in main.tsx index.css vite-env.d.ts; do
   [ -f "src/$base" ] || git show "$(git rev-list --max-parents=0 HEAD):src/$base" > "src/$base"

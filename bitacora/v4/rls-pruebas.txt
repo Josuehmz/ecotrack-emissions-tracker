@@ -1,0 +1,21 @@
+== 2026-11-03 15:26:24 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== Schema: bitacora/v4/supabase/schema.sql
+NOTICE:  policy "emissions_select_todos" for relation "public.emissions" does not exist, skipping
+NOTICE:  policy "emissions_insert_valida" for relation "public.emissions" does not exist, skipping
+== Schema aplicado por segunda vez (idempotencia)
+NOTICE:  relation "emissions" already exists, skipping
+NOTICE:  relation "emissions_measured_at_idx" already exists, skipping
+OK    1. anon puede leer las mediciones
+OK    2. anon inserta una medición válida
+OK    3. categoría fuera de la lista rechazada (política RLS)
+OK    4. co2_kg negativo rechazado (política RLS)
+OK    5. el cliente no puede fijar measured_at
+OK    6. el cliente no puede elegir el id
+OK    7. update denegado
+OK    8. delete denegado
+OK    9. truncate denegado
+       ?column?       
+----------------------
+ filas al terminar: 2
+(1 row)
+
