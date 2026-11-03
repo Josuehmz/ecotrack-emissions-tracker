@@ -1,0 +1,6 @@
+Prueba: ¿detecta `pnpm tsc --noEmit` un error de tipos? (archivo temporal src/roto.ts, borrado después) · 2026-11-03 15:50:20 -0500
+$ pnpm tsc --noEmit
+(código de salida: 0)
+$ pnpm tsc -b --noEmit
+src/roto.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.
+(código de salida: 2)

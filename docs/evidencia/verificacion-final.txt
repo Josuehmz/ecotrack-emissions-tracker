@@ -1,0 +1,87 @@
+Verificación final de src/ · 2026-11-03 15:51:54 -0500 · node v24.15.0 · pnpm 11.24.0 · commit a5f473f
+
+### $ pnpm install --frozen-lockfile
+Already up to date
+Done in 4.5s using pnpm v11.24.0
+(código de salida: 0)
+
+Nota: tsconfig.json tiene "files": [] y solo referencias, así que `pnpm tsc --noEmit` no revisa ningún
+archivo y sale con 0 aunque haya errores. El chequeo real es `tsc -b` (script typecheck).
+
+### $ pnpm tsc --noEmit
+(código de salida: 0)
+
+### $ pnpm typecheck
+$ tsc -b --noEmit
+(código de salida: 0)
+
+### $ pnpm lint
+$ oxlint
+(código de salida: 0)
+
+### $ pnpm test
+$ vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/ecotrack-emissions-tracker
+
+
+ Test Files  3 passed (3)
+      Tests  37 passed (37)
+   Start at  15:53:39
+   Duration  29.11s (environment 82%, import 9%, transform 6%, tests 2%)
+
+(código de salida: 0)
+
+### $ pnpm build
+$ tsc -b && vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.30 kB
+dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:  4.59 kB
+dist/assets/index-4c67jqFs.js   232.96 kB │ gzip: 73.07 kB
+
+✓ built in 2.90s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos, no son credenciales): tamaño real del bundle
+### $ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 72 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:   0.30 kB
+dist/assets/index-C7FL1gl2.css   18.45 kB │ gzip:   4.59 kB
+dist/assets/index-D4rkPkVD.js   449.13 kB │ gzip: 128.26 kB
+
+✓ built in 2.71s
+(código de salida: 0)
+
+### RLS de supabase/schema.sql (PostgreSQL 17 en Docker, rol anon)
+### $ bash herramientas/probar-rls.sh
+== 2026-11-03 15:55:48 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== Schema: supabase/schema.sql
+NOTICE:  policy "emissions_select_todos" for relation "public.emissions" does not exist, skipping
+NOTICE:  policy "emissions_insert_valida" for relation "public.emissions" does not exist, skipping
+== Schema aplicado por segunda vez (idempotencia)
+NOTICE:  relation "emissions" already exists, skipping
+NOTICE:  relation "emissions_measured_at_idx" already exists, skipping
+OK    1. anon puede leer las mediciones
+OK    2. anon inserta una medición válida
+OK    3. categoría fuera de la lista rechazada (política RLS)
+OK    4. co2_kg negativo rechazado (política RLS)
+OK    5. el cliente no puede fijar measured_at
+OK    6. el cliente no puede elegir el id
+OK    7. update denegado
+OK    8. delete denegado
+OK    9. truncate denegado
+       ?column?       
+----------------------
+ filas al terminar: 2
+(1 row)
+
+(código de salida: 0)
+
