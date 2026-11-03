@@ -1,0 +1,135 @@
+diff --git a/bitacora/v4/src/components/EmissionForm.tsx b/src/components/EmissionForm.tsx
+index b94b737..abd1512 100644
+--- a/bitacora/v4/src/components/EmissionForm.tsx
++++ b/src/components/EmissionForm.tsx
+@@ -156,7 +156,7 @@ export function EmissionForm({ onAdd, isSubmitting, submitError, onEdit }: Emiss
+         className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-70 sm:col-span-2 lg:col-span-1 lg:mt-6"
+       >
+         {isSubmitting && (
+-          <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
++          <span aria-hidden="true" className="size-4 animate-spin rounded-full motion-reduce:animate-none border-2 border-white border-t-transparent" />
+         )}
+         {isSubmitting ? 'Guardando…' : 'Agregar medición'}
+       </button>
+diff --git a/bitacora/v4/src/components/EmissionsStatus.tsx b/src/components/EmissionsStatus.tsx
+index a3a0369..2c5bfc2 100644
+--- a/bitacora/v4/src/components/EmissionsStatus.tsx
++++ b/src/components/EmissionsStatus.tsx
+@@ -10,7 +10,7 @@ export function EmissionsLoading() {
+       <span className="sr-only">Cargando mediciones…</span>
+       <ul aria-hidden="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+         {[0, 1, 2].map((i) => (
+-          <li key={i} className="flex animate-pulse flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5">
++          <li key={i} className="flex animate-pulse flex-col motion-reduce:animate-none gap-3 rounded-xl border border-slate-200 bg-white p-5">
+             <div className="h-4 w-2/3 rounded bg-slate-200" />
+             <div className="h-8 w-1/2 rounded bg-slate-200" />
+             <div className="h-3 w-1/3 rounded bg-slate-100" />
+diff --git a/bitacora/v4/src/components/EmissionsSummary.tsx b/src/components/EmissionsSummary.tsx
+index 1a0bbcb..a29022d 100644
+--- a/bitacora/v4/src/components/EmissionsSummary.tsx
++++ b/src/components/EmissionsSummary.tsx
+@@ -5,28 +5,42 @@ import { formatCo2, formatCo2Spoken } from '../utils/format.ts'
+ 
+ interface EmissionsSummaryProps {
+   readonly summary: Summary
++  /** Mientras carga se muestra «—»: un «0 kg» haría creer que la empresa no emite nada. */
++  readonly loading: boolean
+ }
+ 
+ /** Total y desglose por categoría. Recibe el resumen ya memorizado por el contenedor. */
+-export const EmissionsSummary = memo(function EmissionsSummary({ summary }: EmissionsSummaryProps) {
++export const EmissionsSummary = memo(function EmissionsSummary({ summary, loading }: EmissionsSummaryProps) {
++  const value = (kg: number) =>
++    loading ? (
++      <>
++        <span aria-hidden="true">—</span>
++        <span className="sr-only">cargando</span>
++      </>
++    ) : (
++      <>
++        <span aria-hidden="true">{formatCo2(kg)}</span>
++        <span className="sr-only">{formatCo2Spoken(kg)}</span>
++      </>
++    )
++
+   return (
+-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
++    <dl aria-busy={loading} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+       <div className="col-span-2 rounded-xl bg-slate-900 p-4 text-white sm:col-span-1">
+         <dt className="text-xs font-medium tracking-wide text-slate-300 uppercase">Total</dt>
+         <dd className="mt-1 text-2xl font-semibold">
+-          <span aria-hidden="true">{formatCo2(summary.totalKg)} CO₂e</span>
+-          <span className="sr-only">{formatCo2Spoken(summary.totalKg)}</span>
++          {value(summary.totalKg)}
++          {!loading && <span aria-hidden="true"> CO₂e</span>}
+         </dd>
+         <dd className="text-xs text-slate-300">
+-          {summary.count} {summary.count === 1 ? 'fuente registrada' : 'fuentes registradas'}
++          {loading ? 'Cargando…' : `${summary.count} ${summary.count === 1 ? 'fuente registrada' : 'fuentes registradas'}`}
+         </dd>
+       </div>
+       {EMISSION_CATEGORIES.map((category) => (
+         <div key={category} className="rounded-xl border border-slate-200 bg-white p-4">
+           <dt className="text-xs font-medium tracking-wide text-slate-600 uppercase">{category}</dt>
+           <dd className="mt-1 text-lg font-semibold text-slate-900">
+-            <span aria-hidden="true">{formatCo2(summary.byCategory[category])}</span>
+-            <span className="sr-only">{formatCo2Spoken(summary.byCategory[category])}</span>
++            {value(summary.byCategory[category])}
+           </dd>
+         </div>
+       ))}
+diff --git a/bitacora/v4/src/components/EmissionsTracker.tsx b/src/components/EmissionsTracker.tsx
+index 4cc2bf0..264c775 100644
+--- a/bitacora/v4/src/components/EmissionsTracker.tsx
++++ b/src/components/EmissionsTracker.tsx
+@@ -47,7 +47,7 @@ export default function EmissionsTracker() {
+         Mediciones de emisiones
+       </h2>
+ 
+-      <EmissionsSummary summary={summary} />
++      <EmissionsSummary summary={summary} loading={status === 'loading'} />
+ 
+       <EmissionForm onAdd={addEmission} isSubmitting={isSubmitting} submitError={submitError} onEdit={clearSubmitError} />
+ 
+diff --git a/src/index.css b/src/index.css
+new file mode 100644
+index 0000000..f1d8c73
+--- /dev/null
++++ b/src/index.css
+@@ -0,0 +1 @@
++@import "tailwindcss";
+diff --git a/src/main.tsx b/src/main.tsx
+new file mode 100644
+index 0000000..b4c8f08
+--- /dev/null
++++ b/src/main.tsx
+@@ -0,0 +1,13 @@
++import { StrictMode } from 'react'
++import { createRoot } from 'react-dom/client'
++import './index.css'
++import App from './App.tsx'
++
++const root = document.getElementById('root')
++if (!root) throw new Error('No se encontró el elemento #root en index.html')
++
++createRoot(root).render(
++  <StrictMode>
++    <App />
++  </StrictMode>,
++)
+diff --git a/src/vite-env.d.ts b/src/vite-env.d.ts
+new file mode 100644
+index 0000000..cbbe8bf
+--- /dev/null
++++ b/src/vite-env.d.ts
+@@ -0,0 +1,10 @@
++/// <reference types="vite/client" />
++
++interface ImportMetaEnv {
++  readonly VITE_SUPABASE_URL?: string
++  readonly VITE_SUPABASE_ANON_KEY?: string
++}
++
++interface ImportMeta {
++  readonly env: ImportMetaEnv
++}

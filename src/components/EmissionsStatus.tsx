@@ -10,7 +10,7 @@ export function EmissionsLoading() {
       <span className="sr-only">Cargando mediciones…</span>
       <ul aria-hidden="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <li key={i} className="flex animate-pulse flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5">
+          <li key={i} className="flex animate-pulse flex-col motion-reduce:animate-none gap-3 rounded-xl border border-slate-200 bg-white p-5">
             <div className="h-4 w-2/3 rounded bg-slate-200" />
             <div className="h-8 w-1/2 rounded bg-slate-200" />
             <div className="h-3 w-1/3 rounded bg-slate-100" />

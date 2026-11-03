@@ -47,7 +47,7 @@ export default function EmissionsTracker() {
         Mediciones de emisiones
       </h2>
 
-      <EmissionsSummary summary={summary} />
+      <EmissionsSummary summary={summary} loading={status === 'loading'} />
 
       <EmissionForm onAdd={addEmission} isSubmitting={isSubmitting} submitError={submitError} onEdit={clearSubmitError} />
 
