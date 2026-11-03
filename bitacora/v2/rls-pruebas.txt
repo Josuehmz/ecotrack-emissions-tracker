@@ -1,0 +1,16 @@
+== 2026-11-03 15:06:15 -0500 · PostgreSQL 17.9 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+== Schema: bitacora/v2/supabase/schema.sql
+OK    1. anon puede leer las mediciones
+OK    2. anon inserta una medición válida
+OK    3. categoría fuera de la lista rechazada (check)
+OK    4. co2_kg negativo rechazado (check)
+FALLA 5. el cliente pudo fijar measured_at (1999-01-01)
+FALLA 6. el cliente pudo elegir el id
+FALLA 7. update permitido (filas afectadas sin error; RLS solo lo vuelve silencioso)
+FALLA 8. delete permitido (sin error)
+FALLA 9. truncate permitido: RLS no aplica a truncate y borró la tabla
+       ?column?       
+----------------------
+ filas al terminar: 0
+(1 row)
+
