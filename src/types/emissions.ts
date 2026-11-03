@@ -69,11 +69,27 @@ export interface EmissionRow {
 /** Estado de la carga inicial del listado. */
 export type LoadStatus = 'idle' | 'loading' | 'success' | 'error'
 
+/** De dónde salen los datos: Supabase real o el repositorio en memoria (modo demo). */
+export type DataMode = 'supabase' | 'demo'
+
+/**
+ * Lo que el hook necesita de la capa de datos. Lo implementan el servicio de
+ * Supabase y el repositorio demo, y en las pruebas un repositorio falso.
+ * Los métodos lanzan Error con un mensaje ya legible para el usuario.
+ */
+export interface EmissionsRepository {
+  readonly mode: DataMode
+  list(): Promise<Emission[]>
+  insert(input: NewEmission): Promise<Emission>
+}
+
 /**
  * Contrato que expondrá el hook useEmissions en el siguiente paso.
  * Se declara ya para que la UI se escriba contra él y no contra Supabase.
  */
 export interface UseEmissionsResult {
+  /** 'demo' cuando faltan las variables de Supabase; la UI lo avisa. */
+  mode: DataMode
   /** Mediciones ya cargadas, de la más reciente a la más antigua. */
   emissions: readonly Emission[]
   /** Estado de la carga del listado. */

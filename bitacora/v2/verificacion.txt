@@ -1,0 +1,86 @@
+Verificación de v2 · 2026-11-03 15:02:42 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint
+src/components/EmissionCard.tsx:13:17: warning react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+src/hooks/useEmissions.ts:57:10: warning react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+(código de salida: 0)
+
+### Pruebas (Vitest)
+$ pnpm exec vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/ecotrack-emissions-tracker
+
+ ❯ src/hooks/useEmissions.test.ts (4 tests | 2 failed) 10269ms
+   ❯ useEmissions (4)
+     × inserta y pone la nueva medición de primera 5021ms
+     × si la inserción falla conserva la lista y expone submitError 5023ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/useEmissions.test.ts > useEmissions > inserta y pone la nueva medición de primera
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/hooks/useEmissions.test.ts:49:3
+     47|   })
+     48|
+     49|   it('inserta y pone la nueva medición de primera', async () => {
+       |   ^
+     50|     const { result } = renderHook(() => useEmissions(fakeRepository()))
+     51|     await waitFor(() => expect(result.current.status).toBe('success'))
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/hooks/useEmissions.test.ts > useEmissions > si la inserción falla conserva la lista y expone submitError
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/hooks/useEmissions.test.ts:63:3
+     61|   })
+     62|
+     63|   it('si la inserción falla conserva la lista y expone submitError', a…
+       |   ^
+     64|     const repo = fakeRepository({
+     65|       insert: async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  15:03:55
+   Duration  28.89s (tests 38%, environment 30%, import 27%, transform 5%)
+
+(código de salida: 1)
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 68 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.30 kB
+dist/assets/index-upJ4FYbT.css   14.77 kB │ gzip:  3.90 kB
+dist/assets/index-B6T5i2ED.js   228.41 kB │ gzip: 71.70 kB
+
+✓ built in 2.00s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 68 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:   0.30 kB
+dist/assets/index-upJ4FYbT.css   14.77 kB │ gzip:   3.90 kB
+dist/assets/index-Ceb8cwt5.js   444.55 kB │ gzip: 126.97 kB
+
+✓ built in 1.98s
+(código de salida: 0)
+

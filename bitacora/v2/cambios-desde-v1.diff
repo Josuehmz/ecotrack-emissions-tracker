@@ -1,0 +1,949 @@
+diff --git a/bitacora/v2/src/components/EmissionCard.tsx b/bitacora/v2/src/components/EmissionCard.tsx
+new file mode 100644
+index 0000000..074519b
+--- /dev/null
++++ b/bitacora/v2/src/components/EmissionCard.tsx
+@@ -0,0 +1,43 @@
++import type { Emission, EmissionCategory } from '../types/emissions.ts'
++
++/** Clases de Tailwind por categoría. Record obliga a cubrir las tres. */
++const CATEGORY_STYLES: Record<EmissionCategory, string> = {
++  Transporte: 'bg-sky-100 text-sky-800 ring-sky-200',
++  Energía: 'bg-amber-100 text-amber-800 ring-amber-200',
++  Residuos: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
++}
++
++const co2Formatter = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 })
++const dateFormatter = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
++
++export function formatCo2(kg: number): string {
++  return kg >= 1000 ? `${co2Formatter.format(kg / 1000)} t` : `${co2Formatter.format(kg)} kg`
++}
++
++interface EmissionCardProps {
++  emission: Emission
++}
++
++export function EmissionCard({ emission }: EmissionCardProps) {
++  return (
++    <article className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
++      <header className="flex items-start justify-between gap-3">
++        <h3 className="font-medium text-slate-900">{emission.sourceName}</h3>
++        <span
++          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${CATEGORY_STYLES[emission.category]}`}
++        >
++          {emission.category}
++        </span>
++      </header>
++
++      <p className="text-3xl font-semibold tracking-tight text-slate-900">
++        {formatCo2(emission.co2Kg)}
++        <span className="ml-1 text-sm font-normal text-slate-500">CO₂e</span>
++      </p>
++
++      <time dateTime={emission.measuredAt} className="text-xs text-slate-500">
++        {dateFormatter.format(new Date(emission.measuredAt))}
++      </time>
++    </article>
++  )
++}
+diff --git a/bitacora/v2/src/components/EmissionForm.tsx b/bitacora/v2/src/components/EmissionForm.tsx
+new file mode 100644
+index 0000000..137d406
+--- /dev/null
++++ b/bitacora/v2/src/components/EmissionForm.tsx
+@@ -0,0 +1,155 @@
++import { useId, useState } from 'react'
++import type { FormEvent } from 'react'
++import { EMISSION_CATEGORIES, isEmissionCategory } from '../types/emissions.ts'
++import type { EmissionFormErrors, EmissionFormValues, NewEmission } from '../types/emissions.ts'
++
++const EMPTY_FORM: EmissionFormValues = { sourceName: '', category: 'Transporte', co2Kg: '' }
++
++type ValidationResult = { ok: true; value: NewEmission } | { ok: false; errors: EmissionFormErrors }
++
++function validateForm(values: EmissionFormValues): ValidationResult {
++  const errors: EmissionFormErrors = {}
++  const sourceName = values.sourceName.trim()
++  const co2Kg = Number(values.co2Kg.replace(',', '.'))
++
++  if (sourceName.length === 0) errors.sourceName = 'Escribe el nombre de la fuente.'
++  else if (sourceName.length > 80) errors.sourceName = 'Máximo 80 caracteres.'
++
++  if (!isEmissionCategory(values.category)) errors.category = 'Elige una categoría válida.'
++
++  if (values.co2Kg.trim() === '') errors.co2Kg = 'Indica el CO2 producido.'
++  else if (!Number.isFinite(co2Kg)) errors.co2Kg = 'Debe ser un número.'
++  else if (co2Kg < 0) errors.co2Kg = 'No puede ser negativo.'
++
++  if (Object.keys(errors).length > 0) return { ok: false, errors }
++  return { ok: true, value: { sourceName, category: values.category, co2Kg } }
++}
++
++interface EmissionFormProps {
++  onAdd: (input: NewEmission) => Promise<boolean>
++  isSubmitting: boolean
++  submitError: string | null
++  onEdit: () => void
++}
++
++export function EmissionForm({ onAdd, isSubmitting, submitError, onEdit }: EmissionFormProps) {
++  const [values, setValues] = useState<EmissionFormValues>(EMPTY_FORM)
++  const [errors, setErrors] = useState<EmissionFormErrors>({})
++  const idPrefix = useId()
++
++  function update<K extends keyof EmissionFormValues>(field: K, value: EmissionFormValues[K]) {
++    setValues((prev) => ({ ...prev, [field]: value }))
++    setErrors((prev) => ({ ...prev, [field]: undefined }))
++    if (submitError) onEdit()
++  }
++
++  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault()
++    const result = validateForm(values)
++    if (!result.ok) {
++      setErrors(result.errors)
++      return
++    }
++    // Solo se limpia si se guardó; si falla, el usuario no pierde lo que escribió.
++    const saved = await onAdd(result.value)
++    if (saved) {
++      setValues(EMPTY_FORM)
++      setErrors({})
++    }
++  }
++
++  const inputBase =
++    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:ring-2 focus:ring-emerald-500'
++  const inputClass = (hasError: boolean) => `${inputBase} ${hasError ? 'border-red-400' : 'border-slate-300'}`
++
++  const nameId = `${idPrefix}-source`
++  const categoryId = `${idPrefix}-category`
++  const co2Id = `${idPrefix}-co2`
++
++  return (
++    <form
++      onSubmit={handleSubmit}
++      noValidate
++      aria-label="Nueva medición"
++      className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-5 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto] lg:items-end"
++    >
++      <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
++        <label htmlFor={nameId} className="text-sm font-medium text-slate-700">
++          Fuente
++        </label>
++        <input
++          id={nameId}
++          type="text"
++          value={values.sourceName}
++          onChange={(e) => update('sourceName', e.target.value)}
++          placeholder="Ej. Caldera planta norte"
++          aria-invalid={errors.sourceName !== undefined}
++          aria-describedby={errors.sourceName ? `${nameId}-error` : undefined}
++          className={inputClass(errors.sourceName !== undefined)}
++        />
++        {errors.sourceName && (
++          <p id={`${nameId}-error`} className="text-xs text-red-600">
++            {errors.sourceName}
++          </p>
++        )}
++      </div>
++
++      <div className="flex flex-col gap-1">
++        <label htmlFor={categoryId} className="text-sm font-medium text-slate-700">
++          Categoría
++        </label>
++        <select
++          id={categoryId}
++          value={values.category}
++          onChange={(e) => {
++            const next = e.target.value
++            if (isEmissionCategory(next)) update('category', next)
++          }}
++          className={inputClass(errors.category !== undefined)}
++        >
++          {EMISSION_CATEGORIES.map((category) => (
++            <option key={category} value={category}>
++              {category}
++            </option>
++          ))}
++        </select>
++      </div>
++
++      <div className="flex flex-col gap-1">
++        <label htmlFor={co2Id} className="text-sm font-medium text-slate-700">
++          CO₂ (kg)
++        </label>
++        <input
++          id={co2Id}
++          type="text"
++          inputMode="decimal"
++          value={values.co2Kg}
++          onChange={(e) => update('co2Kg', e.target.value)}
++          placeholder="0,00"
++          aria-invalid={errors.co2Kg !== undefined}
++          aria-describedby={errors.co2Kg ? `${co2Id}-error` : undefined}
++          className={inputClass(errors.co2Kg !== undefined)}
++        />
++        {errors.co2Kg && (
++          <p id={`${co2Id}-error`} className="text-xs text-red-600">
++            {errors.co2Kg}
++          </p>
++        )}
++      </div>
++
++      <button
++        type="submit"
++        disabled={isSubmitting}
++        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 lg:col-span-1"
++      >
++        {isSubmitting ? 'Guardando…' : 'Agregar medición'}
++      </button>
++
++      {submitError && (
++        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2 lg:col-span-4">
++          {submitError}
++        </p>
++      )}
++    </form>
++  )
++}
+diff --git a/bitacora/v1/src/components/EmissionsTracker.tsx b/bitacora/v2/src/components/EmissionsTracker.tsx
+index b4278b8..d7f5ba7 100644
+--- a/bitacora/v1/src/components/EmissionsTracker.tsx
++++ b/bitacora/v2/src/components/EmissionsTracker.tsx
+@@ -1,286 +1,25 @@
+-import { useId, useState } from 'react'
+-import type { FormEvent } from 'react'
+-import { EMISSION_CATEGORIES, isEmissionCategory } from '../types/emissions.ts'
+-import type {
+-  Emission,
+-  EmissionCategory,
+-  EmissionFormErrors,
+-  EmissionFormValues,
+-  NewEmission,
+-} from '../types/emissions.ts'
++import { useEmissions } from '../hooks/useEmissions.ts'
++import { EmissionCard, formatCo2 } from './EmissionCard.tsx'
++import { EmissionForm } from './EmissionForm.tsx'
+ 
+ /*
+- * Primera versión (paso 1, solo arquitectura): los datos viven en useState con
+- * mediciones de ejemplo. En el siguiente paso este estado se reemplaza por
+- * useEmissions() y este archivo NO importa Supabase en ningún momento.
+- *
+- * EmissionCard y EmissionForm están en el mismo archivo para que la primera
+- * versión se lea de una sola vez; se extraen a components/ cuando entre el hook.
++ * Contenedor del dashboard. Toda la lógica de datos está en useEmissions():
++ * este archivo no importa Supabase, ni lib/, ni services/.
+  */
+-
+-// ---------------------------------------------------------------------------
+-// Datos de ejemplo
+-// ---------------------------------------------------------------------------
+-
+-const SAMPLE_EMISSIONS: readonly Emission[] = [
+-  {
+-    id: 'sample-1',
+-    sourceName: 'Flota de reparto Bogotá',
+-    category: 'Transporte',
+-    co2Kg: 1240.5,
+-    measuredAt: '2026-11-02T14:30:00Z',
+-  },
+-  {
+-    id: 'sample-2',
+-    sourceName: 'Planta de producción Medellín',
+-    category: 'Energía',
+-    co2Kg: 3875,
+-    measuredAt: '2026-11-02T09:00:00Z',
+-  },
+-  {
+-    id: 'sample-3',
+-    sourceName: 'Relleno sanitario sede Cali',
+-    category: 'Residuos',
+-    co2Kg: 612.25,
+-    measuredAt: '2026-11-01T18:15:00Z',
+-  },
+-  {
+-    id: 'sample-4',
+-    sourceName: 'Vuelos corporativos',
+-    category: 'Transporte',
+-    co2Kg: 2210,
+-    measuredAt: '2026-11-01T08:00:00Z',
+-  },
+-  {
+-    id: 'sample-5',
+-    sourceName: 'Centro de datos',
+-    category: 'Energía',
+-    co2Kg: 958.8,
+-    measuredAt: '2026-10-31T23:59:00Z',
+-  },
+-]
+-
+-// ---------------------------------------------------------------------------
+-// Presentación
+-// ---------------------------------------------------------------------------
+-
+-/** Clases de Tailwind por categoría. Record obliga a cubrir las tres. */
+-const CATEGORY_STYLES: Record<EmissionCategory, string> = {
+-  Transporte: 'bg-sky-100 text-sky-800 ring-sky-200',
+-  Energía: 'bg-amber-100 text-amber-800 ring-amber-200',
+-  Residuos: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+-}
+-
+-const co2Formatter = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 })
+-const dateFormatter = new Intl.DateTimeFormat('es-CO', {
+-  dateStyle: 'medium',
+-  timeStyle: 'short',
+-})
+-
+-function formatCo2(kg: number): string {
+-  return kg >= 1000 ? `${co2Formatter.format(kg / 1000)} t` : `${co2Formatter.format(kg)} kg`
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Validación del formulario (pura: recibe strings, devuelve datos o errores)
+-// ---------------------------------------------------------------------------
+-
+-const EMPTY_FORM: EmissionFormValues = { sourceName: '', category: 'Transporte', co2Kg: '' }
+-
+-type ValidationResult =
+-  | { ok: true; value: NewEmission }
+-  | { ok: false; errors: EmissionFormErrors }
+-
+-function validateForm(values: EmissionFormValues): ValidationResult {
+-  const errors: EmissionFormErrors = {}
+-  const sourceName = values.sourceName.trim()
+-  // Acepta coma decimal, habitual en Colombia.
+-  const co2Kg = Number(values.co2Kg.replace(',', '.'))
+-
+-  if (sourceName.length === 0) errors.sourceName = 'Escribe el nombre de la fuente.'
+-  else if (sourceName.length > 80) errors.sourceName = 'Máximo 80 caracteres.'
+-
+-  if (!isEmissionCategory(values.category)) errors.category = 'Elige una categoría válida.'
+-
+-  if (values.co2Kg.trim() === '') errors.co2Kg = 'Indica el CO2 producido.'
+-  else if (!Number.isFinite(co2Kg)) errors.co2Kg = 'Debe ser un número.'
+-  else if (co2Kg < 0) errors.co2Kg = 'No puede ser negativo.'
+-
+-  if (Object.keys(errors).length > 0) return { ok: false, errors }
+-  return { ok: true, value: { sourceName, category: values.category, co2Kg } }
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Subcomponentes
+-// ---------------------------------------------------------------------------
+-
+-interface EmissionCardProps {
+-  emission: Emission
+-}
+-
+-function EmissionCard({ emission }: EmissionCardProps) {
+-  return (
+-    <article className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+-      <header className="flex items-start justify-between gap-3">
+-        <h3 className="font-medium text-slate-900">{emission.sourceName}</h3>
+-        <span
+-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${CATEGORY_STYLES[emission.category]}`}
+-        >
+-          {emission.category}
+-        </span>
+-      </header>
+-
+-      <p className="text-3xl font-semibold tracking-tight text-slate-900">
+-        {formatCo2(emission.co2Kg)}
+-        <span className="ml-1 text-sm font-normal text-slate-500">CO₂e</span>
+-      </p>
+-
+-      <time dateTime={emission.measuredAt} className="text-xs text-slate-500">
+-        {dateFormatter.format(new Date(emission.measuredAt))}
+-      </time>
+-    </article>
+-  )
+-}
+-
+-interface EmissionFormProps {
+-  onAdd: (input: NewEmission) => void
+-}
+-
+-function EmissionForm({ onAdd }: EmissionFormProps) {
+-  const [values, setValues] = useState<EmissionFormValues>(EMPTY_FORM)
+-  const [errors, setErrors] = useState<EmissionFormErrors>({})
+-  const idPrefix = useId()
+-
+-  function update<K extends keyof EmissionFormValues>(field: K, value: EmissionFormValues[K]) {
+-    setValues((prev) => ({ ...prev, [field]: value }))
+-    // Borra el error del campo apenas el usuario lo corrige.
+-    setErrors((prev) => ({ ...prev, [field]: undefined }))
+-  }
+-
+-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+-    event.preventDefault()
+-    const result = validateForm(values)
+-    if (!result.ok) {
+-      setErrors(result.errors)
+-      return
+-    }
+-    onAdd(result.value)
+-    setValues(EMPTY_FORM)
+-    setErrors({})
+-  }
+-
+-  const inputBase =
+-    'w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:ring-2 focus:ring-emerald-500'
+-  const inputClass = (hasError: boolean) =>
+-    `${inputBase} ${hasError ? 'border-red-400' : 'border-slate-300'}`
+-
+-  const nameId = `${idPrefix}-source`
+-  const categoryId = `${idPrefix}-category`
+-  const co2Id = `${idPrefix}-co2`
+-
+-  return (
+-    <form
+-      onSubmit={handleSubmit}
+-      noValidate
+-      aria-label="Nueva medición"
+-      className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-5 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto] lg:items-end"
+-    >
+-      <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+-        <label htmlFor={nameId} className="text-sm font-medium text-slate-700">
+-          Fuente
+-        </label>
+-        <input
+-          id={nameId}
+-          type="text"
+-          value={values.sourceName}
+-          onChange={(e) => update('sourceName', e.target.value)}
+-          placeholder="Ej. Caldera planta norte"
+-          aria-invalid={errors.sourceName !== undefined}
+-          aria-describedby={errors.sourceName ? `${nameId}-error` : undefined}
+-          className={inputClass(errors.sourceName !== undefined)}
+-        />
+-        {errors.sourceName && (
+-          <p id={`${nameId}-error`} className="text-xs text-red-600">
+-            {errors.sourceName}
+-          </p>
+-        )}
+-      </div>
+-
+-      <div className="flex flex-col gap-1">
+-        <label htmlFor={categoryId} className="text-sm font-medium text-slate-700">
+-          Categoría
+-        </label>
+-        <select
+-          id={categoryId}
+-          value={values.category}
+-          onChange={(e) => {
+-            const next = e.target.value
+-            if (isEmissionCategory(next)) update('category', next)
+-          }}
+-          className={inputClass(errors.category !== undefined)}
+-        >
+-          {EMISSION_CATEGORIES.map((category) => (
+-            <option key={category} value={category}>
+-              {category}
+-            </option>
+-          ))}
+-        </select>
+-      </div>
+-
+-      <div className="flex flex-col gap-1">
+-        <label htmlFor={co2Id} className="text-sm font-medium text-slate-700">
+-          CO₂ (kg)
+-        </label>
+-        <input
+-          id={co2Id}
+-          type="text"
+-          inputMode="decimal"
+-          value={values.co2Kg}
+-          onChange={(e) => update('co2Kg', e.target.value)}
+-          placeholder="0,00"
+-          aria-invalid={errors.co2Kg !== undefined}
+-          aria-describedby={errors.co2Kg ? `${co2Id}-error` : undefined}
+-          className={inputClass(errors.co2Kg !== undefined)}
+-        />
+-        {errors.co2Kg && (
+-          <p id={`${co2Id}-error`} className="text-xs text-red-600">
+-            {errors.co2Kg}
+-          </p>
+-        )}
+-      </div>
+-
+-      <button
+-        type="submit"
+-        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 lg:col-span-1"
+-      >
+-        Agregar medición
+-      </button>
+-    </form>
+-  )
+-}
+-
+-// ---------------------------------------------------------------------------
+-// Componente principal
+-// ---------------------------------------------------------------------------
+-
+ export default function EmissionsTracker() {
+-  // Paso 1: estado local. Paso 2: const { emissions, ... } = useEmissions()
+-  const [emissions, setEmissions] = useState<readonly Emission[]>(SAMPLE_EMISSIONS)
+-
+-  function handleAdd(input: NewEmission) {
+-    const created: Emission = {
+-      ...input,
+-      id: crypto.randomUUID(),
+-      measuredAt: new Date().toISOString(),
+-    }
+-    // La más reciente primero, igual que ordenará la consulta a la BD.
+-    setEmissions((prev) => [created, ...prev])
+-  }
++  const { mode, emissions, status, loadError, isSubmitting, submitError, addEmission, reload, clearSubmitError } =
++    useEmissions()
+ 
+   const totalKg = emissions.reduce((sum, e) => sum + e.co2Kg, 0)
+ 
+   return (
+     <section aria-labelledby="emissions-title" className="flex flex-col gap-6">
++      {mode === 'demo' && (
++        <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
++          <strong>Modo demo:</strong> no hay credenciales de Supabase, los datos son simulados y no se guardan.
++        </p>
++      )}
++
+       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+         <div>
+           <h2 id="emissions-title" className="text-lg font-semibold text-slate-900">
+@@ -295,13 +34,37 @@ export default function EmissionsTracker() {
+         </p>
+       </header>
+ 
+-      <EmissionForm onAdd={handleAdd} />
++      <EmissionForm
++        onAdd={addEmission}
++        isSubmitting={isSubmitting}
++        submitError={submitError}
++        onEdit={clearSubmitError}
++      />
+ 
+-      {emissions.length === 0 ? (
++      {(status === 'idle' || status === 'loading') && (
++        <p className="p-10 text-center text-sm text-slate-500">Cargando mediciones…</p>
++      )}
++
++      {status === 'error' && (
++        <div className="flex flex-col items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
++          <p className="text-sm text-red-700">{loadError}</p>
++          <button
++            type="button"
++            onClick={() => void reload()}
++            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
++          >
++            Reintentar
++          </button>
++        </div>
++      )}
++
++      {status === 'success' && emissions.length === 0 && (
+         <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">
+           Todavía no hay mediciones. Agrega la primera con el formulario.
+         </p>
+-      ) : (
++      )}
++
++      {status === 'success' && emissions.length > 0 && (
+         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+           {emissions.map((emission) => (
+             <li key={emission.id}>
+diff --git a/bitacora/v2/src/hooks/useEmissions.test.ts b/bitacora/v2/src/hooks/useEmissions.test.ts
+new file mode 100644
+index 0000000..eea4882
+--- /dev/null
++++ b/bitacora/v2/src/hooks/useEmissions.test.ts
+@@ -0,0 +1,82 @@
++import { act, renderHook, waitFor } from '@testing-library/react'
++import { describe, expect, it } from 'vitest'
++import type { Emission, EmissionsRepository, NewEmission } from '../types/emissions.ts'
++import { useEmissions } from './useEmissions.ts'
++
++const SAMPLE: Emission = {
++  id: 'e-1',
++  sourceName: 'Caldera planta norte',
++  category: 'Energía',
++  co2Kg: 120,
++  measuredAt: '2026-11-03T10:00:00Z',
++}
++
++const NEW: NewEmission = { sourceName: 'Camión 12', category: 'Transporte', co2Kg: 45.5 }
++
++/** Repositorio falso: cada prueba decide qué devuelve o qué error lanza. */
++function fakeRepository(overrides: Partial<EmissionsRepository> = {}): EmissionsRepository {
++  return {
++    mode: 'demo',
++    list: async () => [SAMPLE],
++    insert: async (input) => ({ ...input, id: 'e-2', measuredAt: '2026-11-03T11:00:00Z' }),
++    ...overrides,
++  }
++}
++
++describe('useEmissions', () => {
++  it('carga el listado: loading y después success', async () => {
++    const { result } = renderHook(() => useEmissions(fakeRepository()))
++    expect(result.current.status).toBe('loading')
++
++    await waitFor(() => expect(result.current.status).toBe('success'))
++    expect(result.current.emissions).toEqual([SAMPLE])
++    expect(result.current.loadError).toBeNull()
++  })
++
++  it('si la carga falla expone el mensaje y status error', async () => {
++    const repo = fakeRepository({
++      list: async () => {
++        throw new Error('No se pudo conectar con Supabase.')
++      },
++    })
++    const { result } = renderHook(() => useEmissions(repo))
++
++    await waitFor(() => expect(result.current.status).toBe('error'))
++    expect(result.current.loadError).toBe('No se pudo conectar con Supabase.')
++    expect(result.current.emissions).toEqual([])
++  })
++
++  it('inserta y pone la nueva medición de primera', async () => {
++    const { result } = renderHook(() => useEmissions(fakeRepository()))
++    await waitFor(() => expect(result.current.status).toBe('success'))
++
++    let ok = false
++    await act(async () => {
++      ok = await result.current.addEmission(NEW)
++    })
++
++    expect(ok).toBe(true)
++    expect(result.current.emissions.map((e) => e.id)).toEqual(['e-2', 'e-1'])
++    expect(result.current.isSubmitting).toBe(false)
++  })
++
++  it('si la inserción falla conserva la lista y expone submitError', async () => {
++    const repo = fakeRepository({
++      insert: async () => {
++        throw new Error('No tienes permiso para esta operación (política RLS).')
++      },
++    })
++    const { result } = renderHook(() => useEmissions(repo))
++    await waitFor(() => expect(result.current.status).toBe('success'))
++
++    let ok = true
++    await act(async () => {
++      ok = await result.current.addEmission(NEW)
++    })
++
++    expect(ok).toBe(false)
++    expect(result.current.submitError).toBe('No tienes permiso para esta operación (política RLS).')
++    expect(result.current.emissions).toEqual([SAMPLE])
++    expect(result.current.isSubmitting).toBe(false)
++  })
++})
+diff --git a/bitacora/v2/src/hooks/useEmissions.ts b/bitacora/v2/src/hooks/useEmissions.ts
+new file mode 100644
+index 0000000..3992353
+--- /dev/null
++++ b/bitacora/v2/src/hooks/useEmissions.ts
+@@ -0,0 +1,92 @@
++import { useCallback, useEffect, useRef, useState } from 'react'
++import { defaultRepository } from '../services/index.ts'
++import type {
++  Emission,
++  EmissionsRepository,
++  LoadStatus,
++  NewEmission,
++  UseEmissionsResult,
++} from '../types/emissions.ts'
++
++function messageOf(error: unknown): string {
++  return error instanceof Error ? error.message : 'Ocurrió un error inesperado.'
++}
++
++/**
++ * Estado de la pantalla de emisiones: carga, inserción y errores.
++ *
++ * Recibe el repositorio por parámetro (Supabase o demo por defecto) para que
++ * las pruebas puedan inyectar uno falso sin red. La UI solo habla con este hook.
++ */
++export function useEmissions(repository: EmissionsRepository = defaultRepository): UseEmissionsResult {
++  const [emissions, setEmissions] = useState<readonly Emission[]>([])
++  const [status, setStatus] = useState<LoadStatus>('idle')
++  const [loadError, setLoadError] = useState<string | null>(null)
++  const [isSubmitting, setIsSubmitting] = useState(false)
++  const [submitError, setSubmitError] = useState<string | null>(null)
++
++  // Evita setState después de desmontar (StrictMode monta, desmonta y vuelve a montar).
++  const mountedRef = useRef(false)
++  // Solo la última carga pedida puede escribir el estado (si se pulsa "Reintentar" dos veces).
++  const lastRequestRef = useRef(0)
++
++  useEffect(() => {
++    mountedRef.current = true
++    return () => {
++      mountedRef.current = false
++    }
++  }, [])
++
++  const reload = useCallback(async () => {
++    const requestId = ++lastRequestRef.current
++    setStatus('loading')
++    setLoadError(null)
++    try {
++      const rows = await repository.list()
++      if (!mountedRef.current || requestId !== lastRequestRef.current) return
++      setEmissions(rows)
++      setStatus('success')
++    } catch (error) {
++      if (!mountedRef.current || requestId !== lastRequestRef.current) return
++      setLoadError(messageOf(error))
++      setStatus('error')
++    }
++  }, [repository])
++
++  useEffect(() => {
++    void reload()
++  }, [reload])
++
++  const addEmission = useCallback(
++    async (input: NewEmission) => {
++      setIsSubmitting(true)
++      setSubmitError(null)
++      try {
++        // Pesimista: el id y la fecha vienen de la base de datos.
++        const created = await repository.insert(input)
++        if (mountedRef.current) setEmissions((prev) => [created, ...prev])
++        return true
++      } catch (error) {
++        if (mountedRef.current) setSubmitError(messageOf(error))
++        return false
++      } finally {
++        if (mountedRef.current) setIsSubmitting(false)
++      }
++    },
++    [repository],
++  )
++
++  const clearSubmitError = useCallback(() => setSubmitError(null), [])
++
++  return {
++    mode: repository.mode,
++    emissions,
++    status,
++    loadError,
++    isSubmitting,
++    submitError,
++    addEmission,
++    reload,
++    clearSubmitError,
++  }
++}
+diff --git a/bitacora/v2/src/lib/supabaseClient.ts b/bitacora/v2/src/lib/supabaseClient.ts
+new file mode 100644
+index 0000000..fb8ec1c
+--- /dev/null
++++ b/bitacora/v2/src/lib/supabaseClient.ts
+@@ -0,0 +1,17 @@
++import { createClient } from '@supabase/supabase-js'
++import type { SupabaseClient } from '@supabase/supabase-js'
++
++/*
++ * Único lugar que crea el cliente de Supabase. Solo lo importa services/.
++ *
++ * Las credenciales llegan por variables de entorno de Vite (archivo .env, que no
++ * se sube al repositorio; ver .env.example). Solo se usa la anon key: la
++ * service_role nunca va en el frontend.
++ *
++ * Si falta alguna variable no se lanza un error: se exporta null y la app
++ * arranca en "modo demo" con datos simulados.
++ */
++const url = import.meta.env.VITE_SUPABASE_URL
++const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
++
++export const supabase: SupabaseClient | null = url && anonKey ? createClient(url, anonKey) : null
+diff --git a/bitacora/v2/src/services/demoRepository.ts b/bitacora/v2/src/services/demoRepository.ts
+new file mode 100644
+index 0000000..32ce030
+--- /dev/null
++++ b/bitacora/v2/src/services/demoRepository.ts
+@@ -0,0 +1,43 @@
++import type { Emission, EmissionsRepository, NewEmission } from '../types/emissions.ts'
++
++/*
++ * MODO DEMO: repositorio en memoria con DATOS SIMULADOS.
++ * Se usa cuando faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY.
++ * Tiene la misma interfaz que el servicio de Supabase y un retardo artificial
++ * para que se vean el loader y el botón "Guardando…". Nada se persiste: al
++ * recargar la página vuelven los datos iniciales.
++ */
++
++const DEMO_SEED: readonly Emission[] = [
++  { id: 'demo-1', sourceName: 'Flota de reparto Bogotá', category: 'Transporte', co2Kg: 1240.5, measuredAt: '2026-11-02T14:30:00Z' },
++  { id: 'demo-2', sourceName: 'Planta de producción Medellín', category: 'Energía', co2Kg: 3875, measuredAt: '2026-11-02T09:00:00Z' },
++  { id: 'demo-3', sourceName: 'Relleno sanitario sede Cali', category: 'Residuos', co2Kg: 612.25, measuredAt: '2026-11-01T18:15:00Z' },
++  { id: 'demo-4', sourceName: 'Vuelos corporativos', category: 'Transporte', co2Kg: 2210, measuredAt: '2026-11-01T08:00:00Z' },
++  { id: 'demo-5', sourceName: 'Centro de datos', category: 'Energía', co2Kg: 958.8, measuredAt: '2026-10-31T23:59:00Z' },
++]
++
++const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
++
++export function createDemoRepository(delayMs = 700): EmissionsRepository {
++  let rows: Emission[] = [...DEMO_SEED]
++
++  return {
++    mode: 'demo',
++
++    async list() {
++      await wait(delayMs)
++      return [...rows]
++    },
++
++    async insert(input: NewEmission) {
++      await wait(delayMs)
++      const created: Emission = {
++        ...input,
++        id: `demo-${crypto.randomUUID()}`,
++        measuredAt: new Date().toISOString(),
++      }
++      rows = [created, ...rows]
++      return created
++    },
++  }
++}
+diff --git a/bitacora/v2/src/services/emissionsService.ts b/bitacora/v2/src/services/emissionsService.ts
+new file mode 100644
+index 0000000..4ebe0ef
+--- /dev/null
++++ b/bitacora/v2/src/services/emissionsService.ts
+@@ -0,0 +1,83 @@
++import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
++import { isEmissionCategory } from '../types/emissions.ts'
++import type { Emission, EmissionsRepository, NewEmission } from '../types/emissions.ts'
++
++/*
++ * Acceso a la tabla public.emissions. Es el único archivo que conoce los nombres
++ * de las columnas (snake_case); hacia arriba solo salen tipos de dominio.
++ */
++
++const TABLE = 'emissions'
++const COLUMNS = 'id, source_name, category, co2_kg, measured_at'
++
++/**
++ * Convierte una fila cruda en Emission, o null si no es válida.
++ * PostgREST devuelve `numeric` como string en algunos casos, por eso co2_kg
++ * acepta number o string numérico.
++ */
++export function parseEmissionRow(row: unknown): Emission | null {
++  if (typeof row !== 'object' || row === null) return null
++  const r = row as Record<string, unknown>
++
++  const co2 = typeof r.co2_kg === 'string' ? Number(r.co2_kg) : r.co2_kg
++  if (
++    typeof r.id !== 'string' ||
++    typeof r.source_name !== 'string' ||
++    typeof r.category !== 'string' ||
++    !isEmissionCategory(r.category) ||
++    typeof co2 !== 'number' ||
++    !Number.isFinite(co2) ||
++    typeof r.measured_at !== 'string'
++  ) {
++    return null
++  }
++
++  return {
++    id: r.id,
++    sourceName: r.source_name,
++    category: r.category,
++    co2Kg: co2,
++    measuredAt: r.measured_at,
++  }
++}
++
++/** Traduce un error de Supabase a un mensaje para el usuario. */
++export function toUserMessage(error: Pick<PostgrestError, 'message' | 'code'>): string {
++  if (error.code === '42501') return 'No tienes permiso para esta operación (política RLS).'
++  if (error.code === '23514') return 'Los datos no cumplen las reglas de la tabla.'
++  if (error.message.includes('Failed to fetch')) {
++    return 'No se pudo conectar con Supabase. Revisa tu conexión e inténtalo de nuevo.'
++  }
++  return `Error de Supabase: ${error.message}`
++}
++
++export function createSupabaseRepository(client: SupabaseClient): EmissionsRepository {
++  return {
++    mode: 'supabase',
++
++    async list() {
++      const { data, error } = await client
++        .from(TABLE)
++        .select(COLUMNS)
++        .order('measured_at', { ascending: false })
++      if (error) throw new Error(toUserMessage(error))
++
++      const rows: unknown[] = data ?? []
++      // Una fila inválida se descarta en vez de romper toda la lista.
++      return rows.map(parseEmissionRow).filter((e): e is Emission => e !== null)
++    },
++
++    async insert(input: NewEmission) {
++      const { data, error } = await client
++        .from(TABLE)
++        .insert({ source_name: input.sourceName, category: input.category, co2_kg: input.co2Kg })
++        .select(COLUMNS)
++        .single()
++      if (error) throw new Error(toUserMessage(error))
++
++      const created = parseEmissionRow(data)
++      if (!created) throw new Error('La base de datos devolvió una fila con un formato inesperado.')
++      return created
++    },
++  }
++}
+diff --git a/bitacora/v2/src/services/index.ts b/bitacora/v2/src/services/index.ts
+new file mode 100644
+index 0000000..b8457f0
+--- /dev/null
++++ b/bitacora/v2/src/services/index.ts
+@@ -0,0 +1,9 @@
++import { supabase } from '../lib/supabaseClient.ts'
++import type { EmissionsRepository } from '../types/emissions.ts'
++import { createDemoRepository } from './demoRepository.ts'
++import { createSupabaseRepository } from './emissionsService.ts'
++
++/** Repositorio por defecto: Supabase si hay credenciales, si no el modo demo. */
++export const defaultRepository: EmissionsRepository = supabase
++  ? createSupabaseRepository(supabase)
++  : createDemoRepository()
+diff --git a/bitacora/v1/src/types/emissions.ts b/bitacora/v2/src/types/emissions.ts
+index 0d81440..a3b4440 100644
+--- a/bitacora/v1/src/types/emissions.ts
++++ b/bitacora/v2/src/types/emissions.ts
+@@ -69,11 +69,27 @@ export interface EmissionRow {
+ /** Estado de la carga inicial del listado. */
+ export type LoadStatus = 'idle' | 'loading' | 'success' | 'error'
+ 
++/** De dónde salen los datos: Supabase real o el repositorio en memoria (modo demo). */
++export type DataMode = 'supabase' | 'demo'
++
++/**
++ * Lo que el hook necesita de la capa de datos. Lo implementan el servicio de
++ * Supabase y el repositorio demo, y en las pruebas un repositorio falso.
++ * Los métodos lanzan Error con un mensaje ya legible para el usuario.
++ */
++export interface EmissionsRepository {
++  readonly mode: DataMode
++  list(): Promise<Emission[]>
++  insert(input: NewEmission): Promise<Emission>
++}
++
+ /**
+  * Contrato que expondrá el hook useEmissions en el siguiente paso.
+  * Se declara ya para que la UI se escriba contra él y no contra Supabase.
+  */
+ export interface UseEmissionsResult {
++  /** 'demo' cuando faltan las variables de Supabase; la UI lo avisa. */
++  mode: DataMode
+   /** Mediciones ya cargadas, de la más reciente a la más antigua. */
+   emissions: readonly Emission[]
+   /** Estado de la carga del listado. */
